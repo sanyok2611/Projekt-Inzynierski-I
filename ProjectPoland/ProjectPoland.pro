@@ -11,11 +11,13 @@ CONFIG += c++11
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    matrix.cpp
+    matrix.cpp \
+    qneuralnetwork.cpp
 
 HEADERS += \
     mainwindow.h \
-    matrix.h
+    matrix.h \
+    qneuralnetwork.h
 
 FORMS += \
     mainwindow.ui
