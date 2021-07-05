@@ -12,12 +12,16 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     matrix.cpp \
-    qneuralnetwork.cpp
+    qmneuralnetwork.cpp \
+    qneuralnetwork.cpp \
+    shapedetector.cpp
 
 HEADERS += \
     mainwindow.h \
     matrix.h \
-    qneuralnetwork.h
+    qmneuralnetwork.h \
+    qneuralnetwork.h \
+    shapedetector.h
 
 FORMS += \
     mainwindow.ui
@@ -29,3 +33,10 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 RESOURCES += \
     Resources.qrc
+
+win32:CONFIG(release, debug|release): LIBS += -LD:/opencv/build/x64/vc15/lib/ -lopencv_world452
+else:win32:CONFIG(debug, debug|release): LIBS += -LD:/opencv/build/x64/vc15/lib/ -lopencv_world452d
+else:unix: LIBS += -LD:/opencv/build/x64/vc15/lib/ -lopencv_world452
+
+INCLUDEPATH += D:/opencv/build/include
+DEPENDPATH += D:/opencv/build/include

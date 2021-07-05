@@ -1,23 +1,26 @@
-#include "qneuralnetwork.h"
+#include "qmneuralnetwork.h"
 #include <QDebug>
 #include <cmath>
 
-qneuralnetwork::qneuralnetwork(QObject *parent) : QObject(parent)
+qmneuralnetwork::qmneuralnetwork(QObject *parent) : QObject(parent)
 {
 
 }
 
-qneuralnetwork::qneuralnetwork(int inputnodes, int hiddennodes, int outputnodes, float learningrate)
+qmneuralnetwork::qmneuralnetwork(int inputnodes, int hiddennodes, int outputnodes, int ooutputnodes, float learningrate, char tp)
 {
+    this->type=tp;
     this->hnodes=hiddennodes;
     this->onodes=outputnodes;
     this->inodes=inputnodes;
+    this->oonodes=ooutputnodes;
     this->lr=learningrate;
     this->mwih.fill(hiddennodes,inputnodes);
     this->mwho.fill(outputnodes,hiddennodes);
+    this->mwoo.fill(ooutputnodes,outputnodes);
 }
 
-qneuralnetwork::qneuralnetwork(const QString &filePath)
+qmneuralnetwork::qmneuralnetwork(const QString &filePath)
 {
     QFile file(filePath);
     file.open(QIODevice::ReadOnly|QIODevice::Text);
@@ -27,6 +30,8 @@ qneuralnetwork::qneuralnetwork(const QString &filePath)
     this->hnodes=hiddennodes;
     int outputnodes = file.readLine().toInt();
     this->onodes=outputnodes;
+    int ooutputnodes = file.readLine().toInt();
+    this->oonodes=ooutputnodes;
     float learningrate = file.readLine().toFloat();
     this->lr=learningrate;
     QString Weighths = file.readLine();
@@ -53,10 +58,22 @@ qneuralnetwork::qneuralnetwork(const QString &filePath)
         this->mwho.Matrix.push_back(tmp);
         tmp.clear();
     }
+    Weighths = file.readLine();
+    Line = Weighths.split(',',QString::SkipEmptyParts);
+    for(int i=0; i<ooutputnodes; i++)
+    {
+        QVector <float> tmp;
+        for(int j=0; j<outputnodes; j++)
+        {
+            tmp.push_back(Line[j+i*outputnodes].toFloat());
+        }
+        this->mwoo.Matrix.push_back(tmp);
+        tmp.clear();
+    }
     file.close();
 }
 
-void qneuralnetwork::train(QVector <float> &inputs_list, QVector <float> &targets_list)
+void qmneuralnetwork::train(QVector <float> &inputs_list, QVector <float> &targets_list)
 {
     matrix inputs(inputs_list);
     inputs=inputs.transpose();
@@ -66,13 +83,19 @@ void qneuralnetwork::train(QVector <float> &inputs_list, QVector <float> &target
     hidden_outputs=this->selfActivation(hidden_outputs);
     matrix final_outputs=this->mwho.dot(hidden_outputs);
     final_outputs=this->selfActivation(final_outputs);
-    matrix output_errors=targets.minus(final_outputs);
-    matrix hidden_errors=this->mwho.transpose().dot(output_errors);
-    this->mwho=this->mwho.add(output_errors.mltpl(final_outputs).mltpl(final_outputs.oneminus()).dot(hidden_outputs.transpose()).numbmltpl(this->lr));
+    matrix o_outputs=this->mwoo.dot(final_outputs);
+    o_outputs=this->selfActivation(o_outputs);
+
+    matrix output_errors=targets.minus(o_outputs);
+    matrix final_errors=this->mwoo.transpose().dot(output_errors);
+    matrix hidden_errors=this->mwho.transpose().dot(final_errors);
+
+    this->mwoo=this->mwoo.add(output_errors.mltpl(o_outputs).mltpl(o_outputs.oneminus()).dot(final_outputs.transpose()).numbmltpl(this->lr));
+    this->mwho=this->mwho.add(final_errors.mltpl(final_outputs).mltpl(final_outputs.oneminus()).dot(hidden_outputs.transpose()).numbmltpl(this->lr));
     this->mwih=this->mwih.add(hidden_errors.mltpl(hidden_outputs).mltpl(hidden_outputs.oneminus()).dot(inputs.transpose()).numbmltpl(this->lr));
 }
 
-matrix qneuralnetwork::selfActivation(matrix &x)
+matrix qmneuralnetwork::selfActivation(matrix &x)
 {
     matrix C;
     QVector <float> tmp;
@@ -85,9 +108,9 @@ matrix qneuralnetwork::selfActivation(matrix &x)
     return C;
 }
 
-void qneuralnetwork::saveWeighths()
+void qmneuralnetwork::saveWeighths()
 {
-    QString Name = "NNP"+QString::number(this->hnodes)+"_"+QString::number(this->lr)+".txt";
+    QString Name = "MNNP"+QString::number(this->hnodes)+"_"+QString::number(this->lr)+this->type+".txt";
     QFile File("C:/Qt/"+Name);
     if (File.open(QIODevice::WriteOnly))
     {
@@ -95,6 +118,7 @@ void qneuralnetwork::saveWeighths()
         stream << this->inodes <<Qt::endl;
         stream << this->hnodes <<Qt::endl;
         stream << this->onodes <<Qt::endl;
+        stream << this->oonodes<<Qt::endl;
         stream << this->lr <<Qt::endl;
         for(int i=0; i<this->hnodes; i++)
         {
@@ -107,13 +131,19 @@ void qneuralnetwork::saveWeighths()
             for(int j=0; j<this->hnodes; j++)
                 stream << this->mwho.Matrix[i][j]<<",";
         }
+        stream << Qt::endl;
+        for(int i=0; i<this->oonodes; i++)
+        {
+            for(int j=0; j<this->onodes; j++)
+                stream << this->mwoo.Matrix[i][j]<<",";
+        }
         File.close();
     }
 }
 
 
 
-matrix qneuralnetwork::query(QVector <float> &inputs_list)
+matrix qmneuralnetwork::query(QVector <float> &inputs_list)
 {
     matrix inputs(inputs_list);
     inputs=inputs.transpose();
@@ -121,6 +151,8 @@ matrix qneuralnetwork::query(QVector <float> &inputs_list)
     inputs=this->selfActivation(inputs);
     inputs=this->mwho.dot(inputs);
     inputs=this->selfActivation(inputs);
-    inputs.show();
+    inputs=this->mwoo.dot(inputs);
+    inputs=this->selfActivation(inputs);
+    //inputs.show();
     return inputs;
 }
